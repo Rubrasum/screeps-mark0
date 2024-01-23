@@ -234,13 +234,25 @@ function manageEnergySources(room: Room) {
                 }
             }
         }
+        // Calculate the max number of harvesters needed for this source
+        let max_harvesters: number = 0;
+        const controller = room.controller;
+        if (controller != undefined) {
+            if (controller.level == 1) {
+                max_harvesters = spots * (Math.floor(distance / 25) + 1);
+            } else {
+                max_harvesters = spots * (Math.floor(distance / 20) + 1);
+            }
+        } else {
+            max_harvesters = spots * (Math.floor(distance / 25) + 1);
+            console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+        }
 
-        const max_harvesters = spots * (Math.floor(distance / 25) + 1);
 
         // Check if there are enough harvesters for this source
         if (harvesters.length <= max_harvesters && !spawned) { // Adjust the number as needed
             spawnHarvester(room, source.id);
-            console.log(`... Needs Harvester, spawning... `);
+            console.log(`... Needs Harvester, Max  `+ String(harvesters.length) +`, spawning... `);
             spawned = true;
         }
 
@@ -274,8 +286,21 @@ function manageEnergySources(room: Room) {
 
 function spawnHarvester(room: Room, sourceId: Id<Source>) {
     // Define the body parts for the harvester creep
-    // This is a simple configuration; you might want to make this more dynamic based on your room's economy
-    const body = [WORK, CARRY, MOVE];
+    // Check current upgrade level
+    const controller = room.controller;
+    type BodyPart = typeof WORK | typeof CARRY | typeof MOVE;
+
+    let body: BodyPart[] = [];
+    let energyCapacityAvailable = 0;
+    if (controller != undefined) {
+        if (controller.level == 1) {
+          body = [WORK, CARRY, MOVE];
+        } else {
+          body = [WORK, WORK, CARRY, MOVE];
+        }
+    } else {
+        console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+    }
 
     // Create a unique name for the harvester
     const name = 'Harvester_' + Game.time;
@@ -330,7 +355,7 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
     if (target) return target;
 
     // If Towers are also full, consider upgrading the Controller
-    if (room.controller && room.controller.my && room.controller.level < 2) {
+    if (room.controller && room.controller.my && room.controller.level < 5) {
         return room.controller;
     }
 

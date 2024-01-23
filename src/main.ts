@@ -355,8 +355,12 @@ function manageUpgraderScreeps(room: Room) {
       // Assign upgrader creeps to the Controller
       upgraders.forEach(upgrader => {
           if (upgrader.store[RESOURCE_ENERGY] > 0) {
-              if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
-                  upgrader.moveTo(controller);
+              if (controller !== undefined) {
+                  if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
+                    upgrader.moveTo(controller);
+                  }
+              } else {
+                  console.log("No controller found");
               }
           } else {
               // Find all storage containers in the room
@@ -365,7 +369,13 @@ function manageUpgraderScreeps(room: Room) {
                                         structure.store[RESOURCE_ENERGY] > 0
               });
               // if one storage is above 90% its capacity, grab a full load
-              const storageContainer = storageContainers.find((container) => container.store.getUsedCapacity(RESOURCE_ENERGY) > container.store.getCapacity(RESOURCE_ENERGY) * 0.9);
+              const storageContainer = storageContainers.find((container) => {
+                  if ('store' in container) {
+                      // Now TypeScript knows that container has a store property
+                      return container.store.getUsedCapacity(RESOURCE_ENERGY) > container.store.getCapacity(RESOURCE_ENERGY) * 0.9;
+                  }
+                  return false;
+              });
               // if there is a storage container, grab from it
               if (storageContainer) {
                   if (upgrader.withdraw(storageContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {

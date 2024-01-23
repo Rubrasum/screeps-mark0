@@ -271,11 +271,21 @@ function manageEnergySources(room: Room) {
                     harvester.memory.unloading = true;
                     // if out of energy, set unloading to false
                     console.log("...Moving towards Repo...");
-                    // Find where to deliver the energy (e.g., Spawn, Extensions, or Storage)
+                    // Find where to deliver the energy (e.g., Spawn, Extensions, Storage, or Construction Sites)
                     const target = findEnergyDeliveryTarget(room, harvester);
+
                     if (target) {
-                        if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                            harvester.moveTo(target);
+                        // Check if the target is a construction site
+                        if (target instanceof ConstructionSite) {
+                            // Add logic to build the construction site
+                            if (harvester.build(target) === ERR_NOT_IN_RANGE) {
+                                harvester.moveTo(target);
+                            }
+                        } else {
+                            // Handle other structures (e.g., Spawn, Extensions, Towers, Storage)
+                            if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                                harvester.moveTo(target);
+                            }
                         }
                     }
                 }
@@ -354,7 +364,14 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
 
     if (target) return target;
 
-    // If Towers are also full, consider upgrading the Controller
+    // Check for road construction sites
+    const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+      filter: (cs) => cs.structureType === STRUCTURE_ROAD
+    });
+
+    if (roadConstructionSite) return roadConstructionSite;
+
+    // If Towers are full and no road construction sites, consider upgrading the Controller
     if (room.controller && room.controller.my && room.controller.level < 5) {
         return room.controller;
     }
@@ -367,6 +384,7 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
     // If no suitable target is found, return null
     return null;
 }
+
 
 function manageUpgraderScreeps(room: Room) {
      // Find upgrader creeps in the room

@@ -335,7 +335,7 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
                 default:
                     body = [WORK, CARRY, MOVE];
                     break;
-          }
+            }
         }
     } else {
         console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
@@ -510,7 +510,7 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
 }
 
 function createConstructionSites(room: Room, level: number) {
-    if (level === 1) {
+    if (level === 0) {
         // Check buildings and sources in the room
         const sources = room.find(FIND_SOURCES);
         const buildings = room.find(FIND_STRUCTURES);
@@ -537,60 +537,69 @@ function createConstructionSites(room: Room, level: number) {
         } else {
             console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
         }
+    }
 
+    if (level === 1) {
+        // Check buildings and sources in the room
+        const sources = room.find(FIND_SOURCES);
+        const buildings = room.find(FIND_STRUCTURES);
+        // Check for the spawn in this room
+        const spawns = room.find(FIND_MY_SPAWNS);
+        // Find Controller
+        const controller = room.controller;
+        let road_locations: RoomPosition[] = [];
 
-    } else {
       // Get Path between spawn and controller
-      //   let path = null;
-      //   if (spawns.length > 0 && controller != undefined) {
-      //       path = spawns[0].pos.findPathTo(controller);
-      //       // Add to road_locations
-      //       path.forEach(path => {
-      //           // Check if the path can have a road
-      //           if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-      //               // Check road is not already there
-      //               if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-      //                   // set as the next build
-      //                   room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-      //               }
-      //           }
-      //       });
-      //   } else {
-      //       console.log("I was aboutta check for path between a spawn and controller but missing one");
-      //   }
-      //   // Get Paths between all sources and spawn, and then all controller and spawn
-      //   sources.forEach(source => {
-      //       if (spawns.length > 0) {
-      //           path = spawns[0].pos.findPathTo(source);
-      //           // Add to road_locations
-      //           path.forEach(path => {
-      //               // Check if the path can have a road
-      //               if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-      //                   // Check road is not already there
-      //                   if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-      //                       // set as the next build
-      //                       room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-      //                   }
-      //               }
-      //           });
-      //       } else {
-      //           console.log("I was aboutta check for path between a spawn and source but missing one");
-      //       }
-      //       if (controller != undefined) {
-      //           path = controller.pos.findPathTo(source);
-      //           // Add to road_locations
-      //           path.forEach(path => {
-      //               // Check if the path can have a road
-      //               if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-      //                   // Check road is not already there
-      //                   if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-      //                       // set as the next build
-      //                       room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-      //                   }
-      //               }
-      //           });
-      //       }
-      //   });
+        let path = null;
+        if (spawns.length > 0 && controller != undefined) {
+            path = spawns[0].pos.findPathTo(controller);
+            // Add to road_locations
+            path.forEach(path => {
+                // Check if the path can have a road
+                if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] === 'swamp' || room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] === 'plain') {
+                    // Check road is not already there
+                    if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                        // set as the next build
+                        room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                    }
+                }
+            });
+        } else {
+            console.log("I was aboutta check for path between a spawn and controller but missing one");
+        }
+        // Get Paths between all sources and spawn, and then all controller and spawn
+        sources.forEach(source => {
+            if (spawns.length > 0) {
+                path = spawns[0].pos.findPathTo(source);
+                // Add to road_locations
+                path.forEach(path => {
+                    // Check if the path can have a road
+                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+                        // Check road is not already there
+                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                            // set as the next build
+                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                        }
+                    }
+                });
+            } else {
+                console.log("I was aboutta check for path between a spawn and source but missing one");
+            }
+            if (controller != undefined) {
+                path = controller.pos.findPathTo(source);
+                // Add to road_locations
+                path.forEach(path => {
+                    // Check if the path can have a road
+                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+                        // Check road is not already there
+                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                            // set as the next build
+                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                        }
+                    }
+                });
+            }
+        });
     }
 
 }
@@ -600,8 +609,14 @@ function manageConstructionAndRepair(room: Room) {
 
   // handle the early level buildings
     if (room.controller != undefined) {
-        if (room.controller.level > 1) {
+        // check how many extensions we have
+        const extensions = room.find(FIND_MY_STRUCTURES, {
+          filter: (structure) => structure.structureType === STRUCTURE_EXTENSION
+        });
+        if (room.controller.level > 1 && extensions.length > 4) {
             createConstructionSites(room, 1);
+        } else {
+            createConstructionSites(room, 0);
         }
     } else {
         console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");

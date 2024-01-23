@@ -422,7 +422,7 @@ function manageUpgraderScreeps(room: Room) {
 function manageCreepSpawning(room: Room) {
     const maxHarvesters = 5;
     const maxUpgraders = 1;
-    const maxBuilders = 1;
+    const maxBuilders = 2;
 
     const harvesters = room.find(FIND_MY_CREEPS, {
         filter: (creep) => creep.memory.role === 'harvester'

@@ -239,9 +239,9 @@ function manageEnergySources(room: Room) {
         const controller = room.controller;
         if (controller != undefined) {
             if (controller.level == 1) {
-                max_harvesters = spots * (Math.floor(distance / 25) + 1);
+                max_harvesters = spots * (Math.floor(distance / 25)) + 1;
             } else {
-                max_harvesters = spots * (Math.floor(distance / 20) + 1);
+                max_harvesters = spots * (Math.floor(distance / 25)) + 1;
             }
         } else {
             max_harvesters = spots * (Math.floor(distance / 25) + 1);
@@ -366,7 +366,7 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
 
     // Check for road construction sites
     const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
-      filter: (cs) => cs.structureType === STRUCTURE_ROAD
+      filter: (cs) => cs.structureType === STRUCTURE_CONTAINER
     });
 
     if (roadConstructionSite) return roadConstructionSite;
@@ -439,7 +439,7 @@ function manageUpgraderScreeps(room: Room) {
 
 function manageCreepSpawning(room: Room) {
     const maxHarvesters = 5;
-    const maxUpgraders = 1;
+    const maxUpgraders = 0;
     const maxBuilders = 2;
 
     const harvesters = room.find(FIND_MY_CREEPS, {

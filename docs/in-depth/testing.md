@@ -80,7 +80,7 @@ this repository for more information on the API.
 
 By default the test helper will create a "stub" world with a 3x3 grid of rooms
 with sources and controllers. Additionally it spawns a bot called "player"
-running the compiled main.js file from this repository.
+running the compiled main.ts file from this repository.
 
 It falls on the user to properly set up preconditions using the
 screeps-server-mockup API. Importantly, most methods exposed with this API are

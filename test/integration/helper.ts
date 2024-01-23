@@ -1,7 +1,7 @@
 const { readFileSync } = require('fs');
 const _ = require('lodash');
 const { ScreepsServer, stdHooks } = require('screeps-server-mockup');
-const DIST_MAIN_JS = 'dist/main.js';
+const DIST_MAIN_JS = 'dist/main.ts';
 
 /*
  * Helper class for creating a ScreepsServer and resetting it between tests.
@@ -29,7 +29,7 @@ class IntegrationTestHelper {
     // create a stub world composed of 9 rooms with sources and controller
     await this._server.world.stubWorld();
 
-    // add a player with the built dist/main.js file
+    // add a player with the built dist/main.ts file
     const modules = {
         main: readFileSync(DIST_MAIN_JS).toString(),
     };

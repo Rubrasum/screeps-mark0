@@ -416,40 +416,46 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
 
 
 function manageUpgraderScreeps(room: Room) {
-     // Find upgrader creeps in the room
-      const upgraders = room.find(FIND_MY_CREEPS, {
-          filter: (creep) => creep.memory.role === 'upgrader'
-      });
+    // Find upgrader creeps in the room
+    const upgraders = room.find(FIND_MY_CREEPS, {
+        filter: (creep) => creep.memory.role === 'upgrader'
+    });
 
-      // Find the Controller in the room
-      const controller = room.controller;
+    // Find the Controller in the room
+    const controller = room.controller;
 
-      // Assign upgrader creeps to the Controller
-      upgraders.forEach(upgrader => {
-          if (upgrader.memory.unloading) {
-              if (controller !== undefined) {
-                  if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
-                      upgrader.moveTo(controller);
-                  } else {
-                      upgrader.upgradeController(controller);
-                  }
-              } else {
-                  console.log("No controller found");
-              }
-          }
+    // Assign upgrader creeps to the Controller
+    upgraders.forEach(upgrader => {
 
-          if (upgrader.store[RESOURCE_ENERGY] > 0) {
 
-          } else {
-              // find the nearest source
-              const source = upgrader.pos.findClosestByPath(FIND_SOURCES);
-              if (source) {
-                  if (upgrader.harvest(source) === ERR_NOT_IN_RANGE) {
-                      upgrader.moveTo(source);
-                  }
-              }
-          }
-      });
+        if (upgrader.memory.unloading) {
+            if (controller !== undefined) {
+                if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
+                    upgrader.moveTo(controller);
+                } else {
+                    upgrader.upgradeController(controller);
+                }
+            } else {
+                console.log("No controller found");
+            }
+            // if empty switch to non-unloading
+            if (upgrader.store[RESOURCE_ENERGY] === 0) {
+                upgrader.memory.unloading = false;
+            }
+        } else {
+            // find the nearest source
+            const source = upgrader.pos.findClosestByPath(FIND_SOURCES);
+            if (source) {
+                if (upgrader.harvest(source) === ERR_NOT_IN_RANGE) {
+                    upgrader.moveTo(source);
+                }
+            }
+            // if full, switch to unloading
+            if (upgrader.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
+                upgrader.memory.unloading = true;
+            }
+        }
+    });
 }
 
 function manageCreepSpawning(room: Room) {

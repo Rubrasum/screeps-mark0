@@ -394,8 +394,15 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
     if (target) return target;
 
     // Check for road construction sites
-    const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+    const extensionConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
       filter: (cs) => cs.structureType === STRUCTURE_EXTENSION
+    });
+
+    if (extensionConstructionSite) return extensionConstructionSite;
+
+    // Check for road construction sites but only over the swamp
+    const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+      filter: (cs) => cs.structureType === STRUCTURE_ROAD && room.lookForAt(LOOK_TERRAIN, cs.pos.x, cs.pos.y)[0] === 'swamp'
     });
 
     if (roadConstructionSite) return roadConstructionSite;

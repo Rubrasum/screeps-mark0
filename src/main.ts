@@ -464,7 +464,104 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
     });
 }
 
+function createConstructionSites(room: Room, level: number) {
+    if (level === 1) {
+        // Check buildings and sources in the room
+        const sources = room.find(FIND_SOURCES);
+        const buildings = room.find(FIND_STRUCTURES);
+        // Check for the spawn in this room
+        const spawns = room.find(FIND_MY_SPAWNS);
+        // Find Controller
+        const controller = room.controller;
+        let road_locations: RoomPosition[] = [];
+
+        // Check the 5 highest spots next to the spawn
+        if (spawns.length > 0) {
+            for (let x = -1; x < 2; x++) {
+                for (let y = -1; y < 2; y++) {
+                    // if the spot is not a wall
+                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
+                        // look at same spot and see if container there
+                        if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
+                            // create the construction site
+                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_CONTAINER);
+                        }
+                    }
+                }
+            }
+        } else {
+            console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+        }
+
+        // Get Path between spawn and controller
+        let path = null;
+        if (spawns.length > 0 && controller != undefined) {
+            path = spawns[0].pos.findPathTo(controller);
+            // Add to road_locations
+            path.forEach(path => {
+                // Check if the path can have a road
+                if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+                    // Check road is not already there
+                    if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                        // set as the next build
+                        room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                    }
+                }
+            });
+        } else {
+            console.log("I was aboutta check for path between a spawn and controller but missing one");
+        }
+        // Get Paths between all sources and spawn, and then all controller and spawn
+        sources.forEach(source => {
+            if (spawns.length > 0) {
+                path = spawns[0].pos.findPathTo(source);
+                // Add to road_locations
+                path.forEach(path => {
+                    // Check if the path can have a road
+                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+                        // Check road is not already there
+                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                            // set as the next build
+                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                        }
+                    }
+                });
+            } else {
+                console.log("I was aboutta check for path between a spawn and source but missing one");
+            }
+            if (controller != undefined) {
+                path = controller.pos.findPathTo(source);
+                // Add to road_locations
+                path.forEach(path => {
+                    // Check if the path can have a road
+                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+                        // Check road is not already there
+                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+                            // set as the next build
+                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+                        }
+                    }
+                });
+            }
+        });
+
+
+    }
+
+}
+
 function manageConstructionAndRepair(room: Room) {
+
+
+  // handle the early level buildings
+    if (room.controller != undefined) {
+        if (room.controller.level < 3) {
+            createConstructionSites(room, 1);
+        }
+    } else {
+        console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+    }
+
     // Find construction sites
     const constructionSites = room.find(FIND_CONSTRUCTION_SITES);
 
@@ -484,31 +581,51 @@ function manageConstructionAndRepair(room: Room) {
 }
 
 function assignBuildersToConstruction(room: Room, constructionSites: ConstructionSite[]) {
+    console.log(`Assigning builders in room: ${room.name}`);
+
     const builders = room.find(FIND_MY_CREEPS, {
         filter: (creep) => creep.memory.role === 'builder'
     });
+    console.log(`Found ${builders.length} builders`);
 
     for (const builder of builders) {
         if (builder.memory.building && builder.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
             builder.memory.building = false;
             builder.say('🔄 harvest');
+            console.log(`Builder ${builder.name} switching to harvest due to empty energy`);
         }
         if (!builder.memory.building && builder.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
             builder.memory.building = true;
             builder.say('🚧 build');
+            console.log(`Builder ${builder.name} switching to build due to full energy`);
         }
 
         if (builder.memory.building) {
-            // Find the nearest construction site
             const nearestSite = builder.pos.findClosestByPath(constructionSites);
-            if (nearestSite && builder.build(nearestSite) === ERR_NOT_IN_RANGE) {
-                builder.moveTo(nearestSite, { visualizePathStyle: { stroke: '#ffffff' } });
+            if (nearestSite) {
+                console.log(`Builder ${builder.name} moving to build at ${nearestSite.pos}`);
+                if (builder.build(nearestSite) === ERR_NOT_IN_RANGE) {
+                    builder.moveTo(nearestSite, { visualizePathStyle: { stroke: '#ffffff' } });
+                }
+            } else {
+                console.log(`No construction sites found for builder ${builder.name}`);
             }
         } else {
             // Add logic to harvest energy
+            const sources = room.find(FIND_SOURCES);
+            const nearestSource = builder.pos.findClosestByPath(sources);
+            if (nearestSource) {
+                console.log(`Builder ${builder.name} moving to harvest at ${nearestSource.pos}`);
+                if (builder.harvest(nearestSource) === ERR_NOT_IN_RANGE) {
+                    builder.moveTo(nearestSource, { visualizePathStyle: { stroke: '#ffaa00' } });
+                }
+            } else {
+                console.log(`No sources found for builder ${builder.name} to harvest`);
+            }
         }
     }
 }
+
 
 
 function assignBuildersToRepair(room: Room, structuresNeedingRepair: Structure[]) {

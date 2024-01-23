@@ -452,12 +452,16 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
   working: false,  // Ensure this property is included
   unloading: false
 }) {
-    const body = [WORK, CARRY, MOVE]; // Customize as needed
+    let body = [WORK, CARRY, MOVE]; // Customize as needed
     const newName = `${role}-${Game.time}`; // Unique name for the new creep
 
     console.log(`Spawning new ${role}: ${newName}`);
 
-
+    if (role == "builder") {
+        if (room.controller && room.controller.level > 1) {
+            body = [WORK, WORK, CARRY, MOVE];
+        }
+    }
 
     room.find(FIND_MY_SPAWNS)[0].spawnCreep(body, newName, {
         memory: memory

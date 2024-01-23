@@ -72,6 +72,7 @@ function manageRooms() {
         }
 
         // Resource Management
+        console.log(`Managing Energy Resources: ${Game.time}`);
         manageEnergySources(room);
 
         // Spawning Creeps
@@ -197,6 +198,8 @@ function energyCost(body: BodyPartConstant[]): number {
 function manageEnergySources(room: Room) {
     // Find energy sources in the room
     const sources = room.find(FIND_SOURCES);
+    console.log(`Found Sources: ` + sources.length);
+    let spawned = false;
 
     // Assign creeps to each energy source
     sources.forEach(source => {
@@ -204,19 +207,51 @@ function manageEnergySources(room: Room) {
         const harvesters = room.find(FIND_MY_CREEPS, {
             filter: (creep) => creep.memory.role === 'harvester' && creep.memory.sourceId === source.id
         });
+        if (harvesters.length > 0) {
+            console.log(`...Harvesters: ` + harvesters.length);
+        }
+
+        // Here we're getting the estimated number of harvesters needed for this source
+        // Check distance from the nearest spawn
+        const spawn = room.find(FIND_MY_SPAWNS)[0];
+        let distance = 0;
+        if (spawn) {
+            distance = spawn.pos.findPathTo(source).length;
+        }
+        let spots = 0;
+        // loop through -1, 0, 1
+        for (let x = -1; x < 2; x++) {
+            // loop through -1, 0, 1
+            for (let y = -1; y < 2; y++) {
+                // if the spot is not a wall
+                if (room.lookAt(source.pos.x + x, source.pos.y + y)[0].terrain !== 'wall') {
+                    // increment the distance
+                    spots++;
+                }
+            }
+        }
+
+        const max_harvesters = spots * (Math.floor(distance / 15) + 1);
+
+
+
 
         // Check if there are enough harvesters for this source
-        if (harvesters.length < 2) { // Adjust the number as needed
+        if (harvesters.length < max_harvesters && !spawned) { // Adjust the number as needed
             spawnHarvester(room, source.id);
+            console.log(`... Needs Harvester, spawning... `);
+            spawned = true;
         }
 
         // Logic for each harvester to harvest energy
         harvesters.forEach(harvester => {
             if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                console.log("...Moving towards target...");
                 if (harvester.harvest(source) === ERR_NOT_IN_RANGE) {
                     harvester.moveTo(source);
                 }
             } else {
+                console.log("...Moving towards Repo...");
                 // Find where to deliver the energy (e.g., Spawn, Extensions, or Storage)
                 const target = findEnergyDeliveryTarget(room, harvester);
                 if (target) {
@@ -249,6 +284,8 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
     // You might have multiple spawns; ensure to select an appropriate one
     const spawns = room.find(FIND_MY_SPAWNS);
     if(spawns.length > 0) {
+        // console log the cost of the creep
+        console.log(`Cost of ${name}: ${energyCost(body)}`);
         spawns[0].spawnCreep(body, name, { memory: memory });
     }
 }
@@ -317,7 +354,8 @@ function manageCreepSpawning(room: Room) {
     });
 
     if (harvesters.length < maxHarvesters) {
-        spawnCreep(room, 'harvester');
+        // spawnCreep(room, 'harvester');
+        console.log("Would produce harvester here but not because already doing that in energy");
     } else if (upgraders.length < maxUpgraders) {
         spawnCreep(room, 'upgrader');
     } else if (builders.length < maxBuilders) {
@@ -325,18 +363,20 @@ function manageCreepSpawning(room: Room) {
     }
 }
 
-function spawnCreep(room: Room, role: string) {
+function spawnCreep(room: Room, role: string, memory: CreepMemory = {
+  role: role,
+  room: room.name,
+  working: false  // Ensure this property is included
+}) {
     const body = [WORK, CARRY, MOVE]; // Customize as needed
     const newName = `${role}-${Game.time}`; // Unique name for the new creep
 
     console.log(`Spawning new ${role}: ${newName}`);
 
+
+
     room.find(FIND_MY_SPAWNS)[0].spawnCreep(body, newName, {
-        memory: {
-            role: role,
-            room: room.name,
-            working: false  // Ensure this property is included
-        }
+        memory: memory
     });
 }
 

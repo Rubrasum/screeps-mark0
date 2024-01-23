@@ -592,6 +592,7 @@ function assignBuildersToConstruction(room: Room, constructionSites: Constructio
     });
     console.log(`Found ${builders.length} builders`);
 
+
     for (const builder of builders) {
         if (builder.memory.building && builder.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
             builder.memory.building = false;
@@ -605,26 +606,43 @@ function assignBuildersToConstruction(room: Room, constructionSites: Constructio
         }
 
         if (builder.memory.building) {
-            const nearestSite = builder.pos.findClosestByPath(constructionSites);
-            if (nearestSite) {
-                console.log(`Builder ${builder.name} moving to build at ${nearestSite.pos}`);
-                if (builder.build(nearestSite) === ERR_NOT_IN_RANGE) {
-                    builder.moveTo(nearestSite, { visualizePathStyle: { stroke: '#ffffff' } });
+            // Filter constructionSites to prioritize non-roads
+            const nonRoadSites = constructionSites.filter(site => site.structureType !== STRUCTURE_ROAD);
+            let targetSite = builder.pos.findClosestByPath(nonRoadSites);
+
+            // If no non-road sites are found, consider roads
+            if (!targetSite) {
+                const roadSites = constructionSites.filter(site => site.structureType === STRUCTURE_ROAD);
+                targetSite = builder.pos.findClosestByPath(roadSites);
+            }
+
+            if (targetSite) {
+                console.log(`Builder ${builder.name} moving to build at ${targetSite.pos}`);
+                if (builder.build(targetSite) === ERR_NOT_IN_RANGE) {
+                    builder.moveTo(targetSite, { visualizePathStyle: { stroke: '#ffffff' } });
                 }
             } else {
                 console.log(`No construction sites found for builder ${builder.name}`);
             }
         } else {
-            // Add logic to harvest energy
-            const sources = room.find(FIND_SOURCES);
-            const nearestSource = builder.pos.findClosestByPath(sources);
-            if (nearestSource) {
-                console.log(`Builder ${builder.name} moving to harvest at ${nearestSource.pos}`);
-                if (builder.harvest(nearestSource) === ERR_NOT_IN_RANGE) {
-                    builder.moveTo(nearestSource, { visualizePathStyle: { stroke: '#ffaa00' } });
+            // Check if storage exists and has more than 80% energy
+            const storageWithEnergy = room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > room.storage.store.getCapacity(RESOURCE_ENERGY) * 0.8;
+            // Modified logic to harvest energy or withdraw from storage
+            if (storageWithEnergy) {
+                console.log(`Builder ${builder.name} withdrawing from storage`);
+                if (room.storage && builder.withdraw(room.storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    builder.moveTo(room.storage, { visualizePathStyle: { stroke: '#ffaa00' } });
                 }
             } else {
-                console.log(`No sources found for builder ${builder.name} to harvest`);
+                const nearestSource = builder.pos.findClosestByPath(FIND_SOURCES);
+                if (nearestSource) {
+                    console.log(`Builder ${builder.name} moving to harvest at ${nearestSource.pos}`);
+                    if (builder.harvest(nearestSource) === ERR_NOT_IN_RANGE) {
+                        builder.moveTo(nearestSource, { visualizePathStyle: { stroke: '#ffaa00' } });
+                    }
+                } else {
+                    console.log(`No sources found for builder ${builder.name} to harvest`);
+                }
             }
         }
     }

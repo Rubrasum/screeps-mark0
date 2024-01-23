@@ -75,8 +75,12 @@ function manageRooms() {
         console.log(`Managing Energy Resources: ${Game.time}`);
         manageEnergySources(room);
 
+        // Manage Upgrades
+
         // Spawning Creeps
         manageCreepSpawning(room);
+
+
 
         // Construction and Repair
         manageConstructionAndRepair(room);
@@ -231,13 +235,10 @@ function manageEnergySources(room: Room) {
             }
         }
 
-        const max_harvesters = spots * (Math.floor(distance / 15) + 1);
-
-
-
+        const max_harvesters = spots * (Math.floor(distance / 25) + 1);
 
         // Check if there are enough harvesters for this source
-        if (harvesters.length < max_harvesters && !spawned) { // Adjust the number as needed
+        if (harvesters.length <= max_harvesters && !spawned) { // Adjust the number as needed
             spawnHarvester(room, source.id);
             console.log(`... Needs Harvester, spawning... `);
             spawned = true;
@@ -245,18 +246,25 @@ function manageEnergySources(room: Room) {
 
         // Logic for each harvester to harvest energy
         harvesters.forEach(harvester => {
-            if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !harvester.memory.unloading) {
                 console.log("...Moving towards target...");
                 if (harvester.harvest(source) === ERR_NOT_IN_RANGE) {
                     harvester.moveTo(source);
                 }
             } else {
-                console.log("...Moving towards Repo...");
-                // Find where to deliver the energy (e.g., Spawn, Extensions, or Storage)
-                const target = findEnergyDeliveryTarget(room, harvester);
-                if (target) {
-                    if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        harvester.moveTo(target);
+                if (harvester.store[RESOURCE_ENERGY] === 0) {
+                    harvester.memory.unloading = false;
+                } else {
+                    // set memory unloading to true
+                    harvester.memory.unloading = true;
+                    // if out of energy, set unloading to false
+                    console.log("...Moving towards Repo...");
+                    // Find where to deliver the energy (e.g., Spawn, Extensions, or Storage)
+                    const target = findEnergyDeliveryTarget(room, harvester);
+                    if (target) {
+                        if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                            harvester.moveTo(target);
+                        }
                     }
                 }
             }
@@ -322,8 +330,7 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
     if (target) return target;
 
     // If Towers are also full, consider upgrading the Controller
-    if (room.controller && room.controller.my &&
-        room.controller.ticksToDowngrade < 2000) {
+    if (room.controller && room.controller.my && room.controller.level < 2) {
         return room.controller;
     }
 
@@ -336,10 +343,51 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
     return null;
 }
 
+function manageUpgraderScreeps(room: Room) {
+     // Find upgrader creeps in the room
+      const upgraders = room.find(FIND_MY_CREEPS, {
+          filter: (creep) => creep.memory.role === 'upgrader'
+      });
+
+      // Find the Controller in the room
+      const controller = room.controller;
+
+      // Assign upgrader creeps to the Controller
+      upgraders.forEach(upgrader => {
+          if (upgrader.store[RESOURCE_ENERGY] > 0) {
+              if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
+                  upgrader.moveTo(controller);
+              }
+          } else {
+              // Find all storage containers in the room
+              const storageContainers = room.find(FIND_STRUCTURES, {
+                  filter: (structure) => structure.structureType === STRUCTURE_CONTAINER &&
+                                        structure.store[RESOURCE_ENERGY] > 0
+              });
+              // if one storage is above 90% its capacity, grab a full load
+              const storageContainer = storageContainers.find((container) => container.store.getUsedCapacity(RESOURCE_ENERGY) > container.store.getCapacity(RESOURCE_ENERGY) * 0.9);
+              // if there is a storage container, grab from it
+              if (storageContainer) {
+                  if (upgrader.withdraw(storageContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                      upgrader.moveTo(storageContainer);
+                  }
+              } else {
+                  // If there are no storage containers, find the nearest source
+                  const source = upgrader.pos.findClosestByPath(FIND_SOURCES);
+                  if (source) {
+                      if (upgrader.harvest(source) === ERR_NOT_IN_RANGE) {
+                          upgrader.moveTo(source);
+                      }
+                  }
+              }
+          }
+      });
+}
+
 function manageCreepSpawning(room: Room) {
     const maxHarvesters = 5;
-    const maxUpgraders = 3;
-    const maxBuilders = 2;
+    const maxUpgraders = 1;
+    const maxBuilders = 1;
 
     const harvesters = room.find(FIND_MY_CREEPS, {
         filter: (creep) => creep.memory.role === 'harvester'
@@ -366,7 +414,8 @@ function manageCreepSpawning(room: Room) {
 function spawnCreep(room: Room, role: string, memory: CreepMemory = {
   role: role,
   room: room.name,
-  working: false  // Ensure this property is included
+  working: false,  // Ensure this property is included
+  unloading: false
 }) {
     const body = [WORK, CARRY, MOVE]; // Customize as needed
     const newName = `${role}-${Game.time}`; // Unique name for the new creep

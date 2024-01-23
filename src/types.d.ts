@@ -8,6 +8,7 @@ interface CreepMemory {
   sourceId?: string; // Add this line
   building?: boolean; // Add this line
   repairing?: boolean; // Add this line
+  unloading?: boolean; // Add this line
 }
 
 interface Memory {

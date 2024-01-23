@@ -80,6 +80,8 @@ function manageRooms() {
         // Spawning Creeps
         manageCreepSpawning(room);
 
+        manageCreepDecay(room);
+
 
 
         // Construction and Repair
@@ -91,6 +93,25 @@ function manageRooms() {
 
         // Other Room-specific logic...
     }
+}
+
+function manageCreepDecay(room: Room): void {
+    room.find(FIND_MY_CREEPS).forEach(creep => {
+        if (creep.ticksToLive && creep.ticksToLive < 100) { // threshold can be adjusted
+            const spawns = room.find(FIND_MY_SPAWNS);
+            if (spawns.length > 0) {
+                const nearestSpawn = creep.pos.findClosestByPath(spawns);
+                if (nearestSpawn) {
+                    if (nearestSpawn.renewCreep(creep) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(nearestSpawn);
+                    }
+                }
+            }
+        }
+    });
+
+    // Additional logic to handle creep spawning if needed
+    // ...
 }
 
 function handleConstructionSites(room: Room) {
@@ -274,14 +295,9 @@ function manageEnergySources(room: Room) {
                     harvester.memory.unloading = true;
                     console.log("...Moving towards Repo...");
 
-                    let target;
-                    if (harvester.memory.unload_target) {
-                        target = Game.getObjectById(harvester.memory.unload_target);
-                    } else {
-                        target = findEnergyDeliveryTarget(room, harvester);
-                        if (target) {
-                            harvester.memory.unload_target = target.id;
-                        }
+                    let target = findEnergyDeliveryTarget(room, harvester);
+                    if (target) {
+                        harvester.memory.unload_target = target.id;
                     }
 
                     if (target) {

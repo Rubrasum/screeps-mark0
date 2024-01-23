@@ -261,29 +261,35 @@ function manageEnergySources(room: Room) {
         harvesters.forEach(harvester => {
             if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !harvester.memory.unloading) {
                 console.log("...Moving towards target...");
-                if (harvester.harvest(source) === ERR_NOT_IN_RANGE) {
+                if (!harvester.pos.isNearTo(source)) {
                     harvester.moveTo(source);
+                } else {
+                    harvester.harvest(source);
                 }
             } else {
                 if (harvester.store[RESOURCE_ENERGY] === 0) {
                     harvester.memory.unloading = false;
+                    harvester.memory.unload_target = null;
                 } else {
-                    // set memory unloading to true
                     harvester.memory.unloading = true;
-                    // if out of energy, set unloading to false
                     console.log("...Moving towards Repo...");
-                    // Find where to deliver the energy (e.g., Spawn, Extensions, Storage, or Construction Sites)
-                    const target = findEnergyDeliveryTarget(room, harvester);
+
+                    let target;
+                    if (harvester.memory.unload_target) {
+                        target = Game.getObjectById(harvester.memory.unload_target);
+                    } else {
+                        target = findEnergyDeliveryTarget(room, harvester);
+                        if (target) {
+                            harvester.memory.unload_target = target.id;
+                        }
+                    }
 
                     if (target) {
-                        // Check if the target is a construction site
                         if (target instanceof ConstructionSite) {
-                            // Add logic to build the construction site
                             if (harvester.build(target) === ERR_NOT_IN_RANGE) {
                                 harvester.moveTo(target);
                             }
-                        } else {
-                            // Handle other structures (e.g., Spawn, Extensions, Towers, Storage)
+                        } else if (target instanceof Structure) {
                             if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                                 harvester.moveTo(target);
                             }
@@ -371,55 +377,91 @@ function manageCreepStates(creep: Creep) {
     }
 }
 
-function findEnergyDeliveryTarget(room: Room, creep: Creep) {
-    // Prioritize Spawns and Extensions that need energy
-    let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-        filter: (structure) => {
-            return (structure.structureType === STRUCTURE_SPAWN ||
-                    structure.structureType === STRUCTURE_EXTENSION) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+function findEnergyDeliveryTarget(room: Room, creep: Creep): Structure | ConstructionSite | null {
+    // Check if a target is already stored in memory and is still valid
+    if (creep.memory.unload_target) {
+        const possibleTarget = Game.getObjectById(creep.memory.unload_target);
+        if (possibleTarget instanceof Structure || possibleTarget instanceof ConstructionSite) {
+            // and check if has room
+            if (isValidTarget(possibleTarget)) {
+                return possibleTarget;
+            }
         }
-    });
-
-    if (target) return target;
-
-    // If Spawns and Extensions are full, consider other structures like Towers
-    target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-        filter: (structure) => {
-            return structure.structureType === STRUCTURE_TOWER &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-        }
-    });
-
-    if (target) return target;
-
-    // Check for road construction sites
-    const extensionConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
-      filter: (cs) => cs.structureType === STRUCTURE_EXTENSION
-    });
-
-    if (extensionConstructionSite) return extensionConstructionSite;
-
-    // Check for road construction sites but only over the swamp
-    const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
-      filter: (cs) => cs.structureType === STRUCTURE_ROAD && room.lookForAt(LOOK_TERRAIN, cs.pos.x, cs.pos.y)[0] === 'swamp'
-    });
-
-    if (roadConstructionSite) return roadConstructionSite;
-
-    // If Towers are full and no road construction sites, consider upgrading the Controller
-    if (room.controller && room.controller.my && room.controller.level < 5) {
-        return room.controller;
+        // Clear the memory if the stored target is no longer valid
+        creep.memory.unload_target = null;
     }
 
-    // Lastly, if all else is satisfied, store excess energy in Storage
-    if (room.storage && room.storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-        return room.storage;
+    // Define a list of target finders in order of priority
+    const targetFinders = [
+        () => findStructuresWithFreeCapacity(room, [STRUCTURE_SPAWN, STRUCTURE_EXTENSION]),
+        () => findStructuresWithFreeCapacity(room, [STRUCTURE_TOWER]),
+        () => findConstructionSites(room, [STRUCTURE_EXTENSION]),
+        () => findConstructionSitesOnSwamp(room),
+        () => room.controller && room.controller.my && room.controller.level < 5 ? room.controller : null,
+        () => room.storage && room.storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0 ? room.storage : null
+    ];
+
+    // Iterate over the target finders and return the first valid target
+    for (const findTarget of targetFinders) {
+        const target = findTarget();
+        if (target) {
+            // Save the target in memory for future reference
+            creep.memory.unload_target = target.id;
+            return target;
+        }
     }
 
-    // If no suitable target is found, return null
     return null;
 }
+
+function isValidTarget(target: Structure | ConstructionSite): boolean {
+    if (target instanceof ConstructionSite) {
+        return true;
+    }
+
+    if (target instanceof StructureExtension ||
+        target instanceof StructureSpawn ||
+        target instanceof StructureTower ||
+        target instanceof StructureStorage ||
+        target instanceof StructureContainer) {
+        return target.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+    }
+
+    return false;
+}
+
+function findStructuresWithFreeCapacity(room: Room, types: StructureConstant[]): Structure | null {
+    return room.find(FIND_STRUCTURES, {
+        filter: (structure) => {
+            if (!types.includes(structure.structureType)) {
+                return false;
+            }
+
+            return structure instanceof StructureExtension ||
+            structure instanceof StructureSpawn ||
+            structure instanceof StructureTower ||
+            structure instanceof StructureStorage ||
+            structure instanceof StructureContainer
+                ? structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+                : false;
+        }
+    })[0] || null;
+}
+
+
+function findConstructionSites(room: Room, types: BuildableStructureConstant[]): ConstructionSite | null {
+    return room.find(FIND_CONSTRUCTION_SITES, {
+        filter: (cs) => types.includes(cs.structureType)
+    })[0] || null;
+}
+
+function findConstructionSitesOnSwamp(room: Room): ConstructionSite | null {
+    return room.find(FIND_CONSTRUCTION_SITES, {
+        filter: (cs) => cs.structureType === STRUCTURE_ROAD &&
+            room.lookForAt(LOOK_TERRAIN, cs.pos.x, cs.pos.y)[0] === 'swamp'
+    })[0] || null;
+}
+
 
 
 function manageUpgraderScreeps(room: Room) {
@@ -505,8 +547,35 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
 
     if (role == "builder") {
         if (room.controller && room.controller.level > 1) {
-            body = [WORK, WORK, CARRY, MOVE];
+            // check how many extensions we have
+            const extensions = room.find(FIND_MY_STRUCTURES, {
+                filter: (structure) => structure.structureType === STRUCTURE_EXTENSION
+            });
+            switch (extensions.length) {
+                case 0:
+                    body = [WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 1:
+                    body = [WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 2:
+                    body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 3:
+                    body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 4:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 5:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                default:
+                    body = [WORK, CARRY, MOVE];
+                    break;
+            }
         }
+
     } else {
         body = [WORK, MOVE, CARRY];
     }

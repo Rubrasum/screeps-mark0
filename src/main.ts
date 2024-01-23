@@ -6,12 +6,12 @@ let bool = false;
 
 // promise resolves in three ticks
 async function delayFn() {
-  // occurs synchronous
-  console.log("Resolving promise.");
-  await PromisePoly.delay(1);
-  await PromisePoly.delay(1);
-  await PromisePoly.delay(1);
-  return "Resolved promise";
+    // occurs synchronous
+    console.log("Resolving promise.");
+    await PromisePoly.delay(1);
+    await PromisePoly.delay(1);
+    await PromisePoly.delay(1);
+    return "Resolved promise";
 }
 
 let p:any = null;
@@ -19,16 +19,16 @@ let p:any = null;
 const asl = new AsyncLoop();
 
 async function mainAsync() {
-  // yield to make async immediately
-  await PromisePoly.yield();
-  // let the promise run in the background
-  p = delayFn().configureQuota(5);
-  // initiate an interval to print every four ticks
-  setInterval(() => { console.log("Scheduled task"); }, 4);
+    // yield to make async immediately
+    await PromisePoly.yield();
+    // let the promise run in the background
+    p = delayFn().configureQuota(5);
+    // initiate an interval to print every four ticks
+    setInterval(() => { console.log("Scheduled task"); }, 4);
 
-  // wait for the promise to finish
-  console.log(`${await p}`);
-  console.log(`after three ticks.`);
+    // wait for the promise to finish
+    console.log(`${await p}`);
+    console.log(`after three ticks.`);
 };
 
 
@@ -37,31 +37,31 @@ asl.usedCpuFn = (index) => index;
 asl.quotaFn = () => 100;
 
 const wrappedLoop = asl.wrapAsyncLoop(async (time) => {
-  // Game.time might increment within an async function if a the function's continuation happens on the next tick.
-  // As help, time is passed internally at the start of the tick and remains the same throughout the async function's runtime.
-  console.log(`Current asynchronous game tick is ${time}`);
+    // Game.time might increment within an async function if a the function's continuation happens on the next tick.
+    // As help, time is passed internally at the start of the tick and remains the same throughout the async function's runtime.
+    console.log(`Current asynchronous game tick is ${time}`);
 
-  if (bool) return;
-  bool = true;
+    if (bool) return;
+    bool = true;
 
-  let mainPromise = mainAsync();
-  mainPromise.configureQuota(20);
-  await mainPromise;
+    let mainPromise = mainAsync();
+    mainPromise.configureQuota(20);
+    await mainPromise;
 });
 
 for (let index = 0; index < 20; index++) {
-  wrappedLoop();
+    wrappedLoop();
 }
 
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
-  console.log(`Current game tick is ${Game.time}`);
+    console.log(`Current game tick is ${Game.time}`);
 
-  manageRooms();
+    manageRooms();
 
-  // run asynchronous loop
-  wrappedLoop();
+    // run asynchronous loop
+    wrappedLoop();
 });
 
 function manageRooms() {
@@ -84,6 +84,7 @@ function manageRooms() {
 
         // Construction and Repair
         manageConstructionAndRepair(room);
+        manageUpgraderScreeps(room);
 
         // Room Defense
         manageRoomDefense(room);
@@ -169,33 +170,33 @@ function manageRoomDefense(room: Room) {
 }
 
 function spawnDefenderCreeps(room: Room) {
-  const hostiles = room.find(FIND_HOSTILE_CREEPS);
-  const spawns = room.find(FIND_MY_SPAWNS);
+    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    const spawns = room.find(FIND_MY_SPAWNS);
 
-  // Only proceed if there are hostiles and available spawns
-  if (hostiles.length > 0 && spawns.length > 0) {
-    const spawn = spawns[0]; // Using the first spawn for simplicity
+    // Only proceed if there are hostiles and available spawns
+    if (hostiles.length > 0 && spawns.length > 0) {
+        const spawn = spawns[0]; // Using the first spawn for simplicity
 
-    // Determine the type of defender creep to spawn
-    const body = [TOUGH, ATTACK, MOVE, MOVE]; // Example body parts
+          // Determine the type of defender creep to spawn
+        const body = [TOUGH, ATTACK, MOVE, MOVE]; // Example body parts
 
-    // Check if the spawn is free and if you have enough energy
-    if (spawn.spawning === null && room.energyAvailable >= energyCost(body)) {
-      const creepName = `Defender_${Game.time}`; // Unique name for the creep
-      spawn.spawnCreep(body, creepName, {
-        memory: {
-            role: 'defender',
-            room: room.name,
-            working: false // Include the 'working' property
+          // Check if the spawn is free and if you have enough energy
+        if (spawn.spawning === null && room.energyAvailable >= energyCost(body)) {
+            const creepName = `Defender_${Game.time}`; // Unique name for the creep
+            spawn.spawnCreep(body, creepName, {
+                memory: {
+                    role: 'defender',
+                    room: room.name,
+                    working: false // Include the 'working' property
+                }
+            });
         }
-      });
-    }
-  }
+      }
 }
 
 // Function to calculate the energy cost of a creep body
 function energyCost(body: BodyPartConstant[]): number {
-  return body.reduce((cost, part) => cost + BODYPART_COST[part], 0);
+    return body.reduce((cost, part) => cost + BODYPART_COST[part], 0);
 }
 
 
@@ -300,13 +301,41 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
     const controller = room.controller;
     type BodyPart = typeof WORK | typeof CARRY | typeof MOVE;
 
+
+
     let body: BodyPart[] = [];
     let energyCapacityAvailable = 0;
     if (controller != undefined) {
         if (controller.level == 1) {
-          body = [WORK, CARRY, MOVE];
+            body = [WORK, CARRY, MOVE];
         } else {
-          body = [WORK, WORK, CARRY, MOVE];
+            // check how many extensions we have
+            const extensions = room.find(FIND_MY_STRUCTURES, {
+              filter: (structure) => structure.structureType === STRUCTURE_EXTENSION
+            });
+            switch (extensions.length) {
+                case 0:
+                    body = [WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 1:
+                    body = [WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 2:
+                    body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 3:
+                    body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 4:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 5:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                default:
+                    body = [WORK, CARRY, MOVE];
+                    break;
+          }
         }
     } else {
         console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
@@ -366,7 +395,7 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep) {
 
     // Check for road construction sites
     const roadConstructionSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
-      filter: (cs) => cs.structureType === STRUCTURE_CONTAINER
+      filter: (cs) => cs.structureType === STRUCTURE_EXTENSION
     });
 
     if (roadConstructionSite) return roadConstructionSite;
@@ -397,40 +426,26 @@ function manageUpgraderScreeps(room: Room) {
 
       // Assign upgrader creeps to the Controller
       upgraders.forEach(upgrader => {
-          if (upgrader.store[RESOURCE_ENERGY] > 0) {
+          if (upgrader.memory.unloading) {
               if (controller !== undefined) {
                   if (upgrader.upgradeController(controller) === ERR_NOT_IN_RANGE) {
-                    upgrader.moveTo(controller);
+                      upgrader.moveTo(controller);
+                  } else {
+                      upgrader.upgradeController(controller);
                   }
               } else {
                   console.log("No controller found");
               }
+          }
+
+          if (upgrader.store[RESOURCE_ENERGY] > 0) {
+
           } else {
-              // Find all storage containers in the room
-              const storageContainers = room.find(FIND_STRUCTURES, {
-                  filter: (structure) => structure.structureType === STRUCTURE_CONTAINER &&
-                                        structure.store[RESOURCE_ENERGY] > 0
-              });
-              // if one storage is above 90% its capacity, grab a full load
-              const storageContainer = storageContainers.find((container) => {
-                  if ('store' in container) {
-                      // Now TypeScript knows that container has a store property
-                      return container.store.getUsedCapacity(RESOURCE_ENERGY) > container.store.getCapacity(RESOURCE_ENERGY) * 0.9;
-                  }
-                  return false;
-              });
-              // if there is a storage container, grab from it
-              if (storageContainer) {
-                  if (upgrader.withdraw(storageContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                      upgrader.moveTo(storageContainer);
-                  }
-              } else {
-                  // If there are no storage containers, find the nearest source
-                  const source = upgrader.pos.findClosestByPath(FIND_SOURCES);
-                  if (source) {
-                      if (upgrader.harvest(source) === ERR_NOT_IN_RANGE) {
-                          upgrader.moveTo(source);
-                      }
+              // find the nearest source
+              const source = upgrader.pos.findClosestByPath(FIND_SOURCES);
+              if (source) {
+                  if (upgrader.harvest(source) === ERR_NOT_IN_RANGE) {
+                      upgrader.moveTo(source);
                   }
               }
           }
@@ -439,7 +454,7 @@ function manageUpgraderScreeps(room: Room) {
 
 function manageCreepSpawning(room: Room) {
     const maxHarvesters = 5;
-    const maxUpgraders = 0;
+    const maxUpgraders = 1;
     const maxBuilders = 2;
 
     const harvesters = room.find(FIND_MY_CREEPS, {
@@ -479,6 +494,8 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
         if (room.controller && room.controller.level > 1) {
             body = [WORK, WORK, CARRY, MOVE];
         }
+    } else {
+        body = [WORK, MOVE, CARRY];
     }
 
     room.find(FIND_MY_SPAWNS)[0].spawnCreep(body, newName, {
@@ -506,7 +523,7 @@ function createConstructionSites(room: Room, level: number) {
                         // look at same spot and see if container there
                         if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
                             // create the construction site
-                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_CONTAINER);
+                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
                         }
                     }
                 }
@@ -515,59 +532,59 @@ function createConstructionSites(room: Room, level: number) {
             console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
         }
 
-        // Get Path between spawn and controller
-        let path = null;
-        if (spawns.length > 0 && controller != undefined) {
-            path = spawns[0].pos.findPathTo(controller);
-            // Add to road_locations
-            path.forEach(path => {
-                // Check if the path can have a road
-                if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-                    // Check road is not already there
-                    if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-                        // set as the next build
-                        room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-                    }
-                }
-            });
-        } else {
-            console.log("I was aboutta check for path between a spawn and controller but missing one");
-        }
-        // Get Paths between all sources and spawn, and then all controller and spawn
-        sources.forEach(source => {
-            if (spawns.length > 0) {
-                path = spawns[0].pos.findPathTo(source);
-                // Add to road_locations
-                path.forEach(path => {
-                    // Check if the path can have a road
-                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-                        // Check road is not already there
-                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-                            // set as the next build
-                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-                        }
-                    }
-                });
-            } else {
-                console.log("I was aboutta check for path between a spawn and source but missing one");
-            }
-            if (controller != undefined) {
-                path = controller.pos.findPathTo(source);
-                // Add to road_locations
-                path.forEach(path => {
-                    // Check if the path can have a road
-                    if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
-                        // Check road is not already there
-                        if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
-                            // set as the next build
-                            room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
-                        }
-                    }
-                });
-            }
-        });
 
-
+    } else {
+      // Get Path between spawn and controller
+      //   let path = null;
+      //   if (spawns.length > 0 && controller != undefined) {
+      //       path = spawns[0].pos.findPathTo(controller);
+      //       // Add to road_locations
+      //       path.forEach(path => {
+      //           // Check if the path can have a road
+      //           if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+      //               // Check road is not already there
+      //               if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+      //                   // set as the next build
+      //                   room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+      //               }
+      //           }
+      //       });
+      //   } else {
+      //       console.log("I was aboutta check for path between a spawn and controller but missing one");
+      //   }
+      //   // Get Paths between all sources and spawn, and then all controller and spawn
+      //   sources.forEach(source => {
+      //       if (spawns.length > 0) {
+      //           path = spawns[0].pos.findPathTo(source);
+      //           // Add to road_locations
+      //           path.forEach(path => {
+      //               // Check if the path can have a road
+      //               if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+      //                   // Check road is not already there
+      //                   if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+      //                       // set as the next build
+      //                       room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+      //                   }
+      //               }
+      //           });
+      //       } else {
+      //           console.log("I was aboutta check for path between a spawn and source but missing one");
+      //       }
+      //       if (controller != undefined) {
+      //           path = controller.pos.findPathTo(source);
+      //           // Add to road_locations
+      //           path.forEach(path => {
+      //               // Check if the path can have a road
+      //               if (room.lookForAt(LOOK_TERRAIN, path.x, path.y)[0] !== 'wall') {
+      //                   // Check road is not already there
+      //                   if (room.lookForAt(LOOK_STRUCTURES, path.x, path.y).length === 0) {
+      //                       // set as the next build
+      //                       room.createConstructionSite(path.x, path.y, STRUCTURE_ROAD);
+      //                   }
+      //               }
+      //           });
+      //       }
+      //   });
     }
 
 }
@@ -577,7 +594,7 @@ function manageConstructionAndRepair(room: Room) {
 
   // handle the early level buildings
     if (room.controller != undefined) {
-        if (room.controller.level < 3) {
+        if (room.controller.level > 1) {
             createConstructionSites(room, 1);
         }
     } else {

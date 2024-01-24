@@ -287,7 +287,6 @@ function manageEnergySources(room: Room) {
             spawned = true;
         }
 
-        // Logic for each harvester to harvest energy
         harvesters.forEach(harvester => {
             if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !harvester.memory.unloading) {
                 console.log("...Moving towards target...");
@@ -310,19 +309,24 @@ function manageEnergySources(room: Room) {
                     }
 
                     if (target) {
-                        if (target instanceof ConstructionSite) {
-                            if (harvester.build(target) === ERR_NOT_IN_RANGE) {
-                                harvester.moveTo(target);
-                            }
-                        } else if (target instanceof Structure) {
-                            if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                                harvester.moveTo(target);
+                        if (!harvester.pos.inRangeTo(target, 1)) {
+                            harvester.moveTo(target);
+                        } else {
+                            if (target instanceof ConstructionSite) {
+                                if (harvester.build(target) === ERR_NOT_IN_RANGE) {
+                                    harvester.moveTo(target);
+                                }
+                            } else {
+                                if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                                    harvester.moveTo(target);
+                                }
                             }
                         }
                     }
                 }
             }
         });
+
     });
 }
 
@@ -407,13 +411,19 @@ function findEnergyDeliveryTarget(room: Room, creep: Creep): Structure | Constru
     if (creep.memory.unload_target) {
         const possibleTarget = Game.getObjectById(creep.memory.unload_target);
         if (possibleTarget instanceof Structure || possibleTarget instanceof ConstructionSite) {
-            // and check if has room
-            if (isValidTarget(possibleTarget)) {
+            // and check if has too much energy
+            if (possibleTarget instanceof StructureSpawn) {
+                if (possibleTarget.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
+                    // Clear the memory if the stored target is no longer valid
+                    creep.memory.unload_target = null;
+                }
+            } else if (possibleTarget instanceof StructureController) {
                 return possibleTarget;
             }
+        } else {
+            // Clear the memory if the stored target is no longer valid
+            creep.memory.unload_target = null;
         }
-        // Clear the memory if the stored target is no longer valid
-        creep.memory.unload_target = null;
     }
 
     // Define a list of target finders in order of priority

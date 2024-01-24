@@ -757,6 +757,26 @@ function createConstructionSites(room: Room, level: number) {
                 });
             }
         });
+
+        // include the level 0 stuff
+        // Check the 5 highest spots next to the spawn
+        if (spawns.length > 0) {
+            for (let x = -1; x < 2; x++) {
+                for (let y = -1; y < 2; y++) {
+                    // if the spot is not a wall
+                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
+                        // look at same spot and see if container there
+                        if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
+                            // create the construction site
+                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                        }
+                    }
+                }
+            }
+        } else {
+            console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+        }
+
     }
 
 }

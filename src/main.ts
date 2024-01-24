@@ -111,7 +111,7 @@ function manageCreepDecay(room: Room): void {
                     // sit still
                     creep.moveTo(creep.pos);
                 }
-                if (creep.ticksToLive > 1485) { // Turn off renewal when creep is sufficiently renewed
+                if (creep.ticksToLive > 1440) { // Turn off renewal when creep is sufficiently renewed
                     creep.memory.needsRenewal = false;
                 }
                 if (nearestSpawn.store.getUsedCapacity(RESOURCE_ENERGY) === 0) { // Turn off renewal if spawn is out of energy
@@ -706,6 +706,27 @@ function createConstructionSites(room: Room, level: number) {
         const controller = room.controller;
         let road_locations: RoomPosition[] = [];
 
+
+
+        // include the level 0 stuff
+        // Check the 5 highest spots next to the spawn
+        if (spawns.length > 0) {
+            for (let x = -2; x < 3; x++) {
+                for (let y = -2; y < 3; y++) {
+                    // if the spot is not a wall
+                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
+                        // look at same spot and see if container there
+                        if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
+                            // create the construction site
+                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                        }
+                    }
+                }
+            }
+        } else {
+            console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
+        }
+
       // Get Path between spawn and controller
         let path = null;
         if (spawns.length > 0 && controller != undefined) {
@@ -758,25 +779,6 @@ function createConstructionSites(room: Room, level: number) {
             }
         });
 
-        // include the level 0 stuff
-        // Check the 5 highest spots next to the spawn
-        if (spawns.length > 0) {
-            for (let x = -1; x < 2; x++) {
-                for (let y = -1; y < 2; y++) {
-                    // if the spot is not a wall
-                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
-                        // look at same spot and see if container there
-                        if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
-                            // create the construction site
-                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
-                        }
-                    }
-                }
-            }
-        } else {
-            console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
-        }
-
     }
 
 }
@@ -791,8 +793,10 @@ function manageConstructionAndRepair(room: Room) {
           filter: (structure) => structure.structureType === STRUCTURE_EXTENSION
         });
         if (room.controller.level > 1 && extensions.length > 4) {
+            console.log("Level 1 Construction");
             createConstructionSites(room, 1);
         } else {
+            console.log("Level 0 Construction");
             createConstructionSites(room, 0);
         }
     } else {

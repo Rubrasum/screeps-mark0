@@ -108,8 +108,8 @@ function manageCreepDecay(room: Room): void {
                 if (nearestSpawn.renewCreep(creep) === ERR_NOT_IN_RANGE) {
                     creep.moveTo(nearestSpawn);
                 } else {
-                    // yield to other creeps
-                    return;
+                    // sit still
+                    creep.moveTo(creep.pos);
                 }
                 if (creep.ticksToLive > 1485) { // Turn off renewal when creep is sufficiently renewed
                     creep.memory.needsRenewal = false;
@@ -290,8 +290,8 @@ function manageEnergySources(room: Room) {
         harvesters.forEach(harvester => {
             if (harvester.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !harvester.memory.unloading) {
                 console.log("...Moving towards target...");
-                if (!harvester.pos.isNearTo(source)) {
-                    harvester.moveTo(source);
+                if (!harvester.pos.isNearTo(source)) { // check if right next to it.
+                        harvester.moveTo(source);
                 } else {
                     harvester.harvest(source);
                 }
@@ -309,18 +309,49 @@ function manageEnergySources(room: Room) {
                     }
 
                     if (target) {
-                        if (!harvester.pos.inRangeTo(target, 1)) {
-                            harvester.moveTo(target);
+                        if (target instanceof ConstructionSite) {
+                            if (harvester.build(target) === ERR_NOT_IN_RANGE) {
+                                harvester.moveTo(target);
+                            }
                         } else {
-                            if (target instanceof ConstructionSite) {
-                                if (harvester.build(target) === ERR_NOT_IN_RANGE) {
+                            // are you within 1 of the target?
+                            if (!harvester.pos.inRangeTo(target, 2)) {
+                                console.log("I am not within range");
+                                // Check if there are any near spots, maybe you're not next to it because no space
+                                let nearSpot = false;
+                                // loop through -1, 0, 1
+                                for (let x = -2; x < 3; x++) {
+                                    if (nearSpot) continue;
+                                    // loop through -1, 0, 1
+                                    for (let y = -2; y < 3; y++) {
+                                        if (nearSpot) continue;
+                                        if (x === 0 && y === 0) continue;
+                                        if (( -1 < x && x < 1 ) && ( -1 < y && y < 1 ) ) continue;
+                                        // if the spot is not a wall
+                                        if (room.lookAt(target.pos.x + x, target.pos.y + y)[0].terrain !== 'wall') {
+                                            // check if there is a creep there
+                                            if (room.lookForAt(LOOK_CREEPS, target.pos.x + x, target.pos.y + y).length === 0) {
+                                                // if there is not a creep there, set nearSpot to true
+                                                nearSpot = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                }
+
+                                if (nearSpot) {
                                     harvester.moveTo(target);
+                                } else {
+                                    harvester.transfer(target, RESOURCE_ENERGY);
                                 }
                             } else {
+                                console.log("I am not within range");
                                 if (harvester.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                                     harvester.moveTo(target);
                                 }
                             }
+
                         }
                     }
                 }
@@ -366,6 +397,21 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
                     break;
                 case 5:
                     body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                    break;
+                case 6:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 7:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
+                    break;
+                case 8:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
+                    break;
+                case 9:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
+                    break;
+                case 10:
+                    body = [WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
                     break;
                 default:
                     body = [WORK, CARRY, MOVE];

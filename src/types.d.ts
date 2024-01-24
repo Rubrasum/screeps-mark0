@@ -11,6 +11,7 @@ interface CreepMemory {
     repairing?: boolean; // Add this line
     unloading?: boolean; // Add this line
     unload_target?: string|null; // Add this line
+    needsRenewal?: boolean; // Add this line
 }
 
 interface Memory {

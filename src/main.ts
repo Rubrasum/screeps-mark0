@@ -80,8 +80,6 @@ function manageRooms() {
         // Spawning Creeps
         manageCreepSpawning(room);
 
-        manageCreepDecay(room);
-
 
 
         // Construction and Repair
@@ -91,28 +89,39 @@ function manageRooms() {
         // Room Defense
         manageRoomDefense(room);
 
+        manageCreepDecay(room);
+
         // Other Room-specific logic...
     }
 }
 
 function manageCreepDecay(room: Room): void {
     room.find(FIND_MY_CREEPS).forEach(creep => {
-        if (creep.ticksToLive && creep.ticksToLive < 100) { // threshold can be adjusted
+        // Check if the creep needs renewal based on a toggle in memory
+        if (creep.ticksToLive && (creep.memory.needsRenewal || creep.ticksToLive < 100)) { // 1500 * 0.98
+            if (!creep.memory.needsRenewal) {
+                creep.memory.needsRenewal = true;
+            }
             const spawns = room.find(FIND_MY_SPAWNS);
-            if (spawns.length > 0) {
-                const nearestSpawn = creep.pos.findClosestByPath(spawns);
-                if (nearestSpawn) {
-                    if (nearestSpawn.renewCreep(creep) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(nearestSpawn);
-                    }
+            const nearestSpawn = creep.pos.findClosestByPath(spawns);
+            if (nearestSpawn) {
+                if (nearestSpawn.renewCreep(creep) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(nearestSpawn);
+                } else {
+                    // yield to other creeps
+                    return;
+                }
+                if (creep.ticksToLive > 1485) { // Turn off renewal when creep is sufficiently renewed
+                    creep.memory.needsRenewal = false;
+                }
+                if (nearestSpawn.store.getUsedCapacity(RESOURCE_ENERGY) === 0) { // Turn off renewal if spawn is out of energy
+                    creep.memory.needsRenewal = false;
                 }
             }
         }
     });
-
-    // Additional logic to handle creep spawning if needed
-    // ...
 }
+
 
 function handleConstructionSites(room: Room) {
     const constructionSites = room.find(FIND_CONSTRUCTION_SITES);

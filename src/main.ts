@@ -98,7 +98,19 @@ function manageRooms() {
 function manageCreepDecay(room: Room): void {
     room.find(FIND_MY_CREEPS).forEach(creep => {
         // Check if the creep needs renewal based on a toggle in memory
-        if (creep.ticksToLive && (creep.memory.needsRenewal || creep.ticksToLive < 100)) { // 1500 * 0.98
+        // get gametime from end of creep name last 6 digits, then compare to live and if older than 20min, let die
+        let creepName = creep.name;
+        let creepTime = creepName.slice(creepName.length - 6);
+        let creepTimeNum = Number(creepTime);
+        let gameTime = Game.time;
+        let gameTimeNum = Number(gameTime);
+        let isOld = false;
+        // now check if the creep is old enough to die
+        if (creepTimeNum + 3600 < gameTimeNum) {
+            isOld = true;
+            console.log("I am old and should die");
+        }
+        if (creep.ticksToLive && !isOld && (creep.memory.needsRenewal || creep.ticksToLive < 100) ) { // 1500 * 0.98
             if (!creep.memory.needsRenewal) {
                 creep.memory.needsRenewal = true;
             }
@@ -270,12 +282,12 @@ function manageEnergySources(room: Room) {
         const controller = room.controller;
         if (controller != undefined) {
             if (controller.level == 1) {
-                max_harvesters = spots * (Math.floor(distance / 25)) + 1;
+                max_harvesters = spots * (Math.ceil(distance / 25)) + 1;
             } else {
-                max_harvesters = spots * (Math.floor(distance / 25)) + 1;
+                max_harvesters = spots * (Math.ceil(distance / 25)) + 1;
             }
         } else {
-            max_harvesters = spots * (Math.floor(distance / 25) + 1);
+            max_harvesters = spots * (Math.ceil(distance / 25) + 1);
             console.log("I was aboutta spawn a harvester but there is no controller to base the model off of");
         }
 
@@ -283,7 +295,7 @@ function manageEnergySources(room: Room) {
         // Check if there are enough harvesters for this source
         if (harvesters.length <= max_harvesters && !spawned) { // Adjust the number as needed
             spawnHarvester(room, source.id);
-            console.log(`... Needs Harvester, Max  `+ String(harvesters.length) +`, spawning... `);
+            console.log(`... Needs Harvester, Max  `+ String(max_harvesters) +`, spawning... `);
             spawned = true;
         }
 
@@ -375,10 +387,11 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
         if (controller.level == 1) {
             body = [WORK, CARRY, MOVE];
         } else {
-            // check how many extensions we have
+            // check how many extensions we have that are finished and full and filter by energy is not 0
             const extensions = room.find(FIND_MY_STRUCTURES, {
-              filter: (structure) => structure.structureType === STRUCTURE_EXTENSION
+                filter: (structure) => structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) < 50
             });
+
             switch (extensions.length) {
                 case 0:
                     body = [WORK, CARRY, CARRY, MOVE, MOVE];
@@ -396,22 +409,22 @@ function spawnHarvester(room: Room, sourceId: Id<Source>) {
                     body = [WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
                     break;
                 case 5:
-                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
                     break;
                 case 6:
-                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
                     break;
                 case 7:
                     body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
                     break;
                 case 8:
-                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
                     break;
                 case 9:
-                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
                     break;
                 case 10:
-                    body = [WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, WORK];
+                    body = [WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
                     break;
                 default:
                     body = [WORK, CARRY, MOVE];
@@ -607,7 +620,7 @@ function manageCreepSpawning(room: Room) {
 
     if (harvesters.length < maxHarvesters) {
         // spawnCreep(room, 'harvester');
-        console.log("Would produce harvester here but not because already doing that in energy");
+        // console.log("Would produce harvester here but not because already doing that in energy");
     } else if (upgraders.length < maxUpgraders) {
         spawnCreep(room, 'upgrader');
     } else if (builders.length < maxBuilders) {
@@ -649,7 +662,22 @@ function spawnCreep(room: Room, role: string, memory: CreepMemory = {
                     body = [WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
                     break;
                 case 5:
-                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE];
+                    break;
+                case 6:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
+                    break;
+                case 7:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
+                    break;
+                case 8:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
+                    break;
+                case 9:
+                    body = [WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
+                    break;
+                case 10:
+                    body = [WORK, WORK, WORK, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE];
                     break;
                 default:
                     body = [WORK, CARRY, MOVE];
@@ -682,11 +710,23 @@ function createConstructionSites(room: Room, level: number) {
             for (let x = -1; x < 2; x++) {
                 for (let y = -1; y < 2; y++) {
                     // if the spot is not a wall
-                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
+                    if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain === 'plain') {
                         // look at same spot and see if container there
                         if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
+
                             // create the construction site
-                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                            if ((spawns[0].pos.x + x) % 2 == 0) {
+                                room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                            }
+
+                        } else {
+                            if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y)[0].structureType === STRUCTURE_EXTENSION) {
+                                // check if the x is modulo 2 = 0
+                                if ((spawns[0].pos.x + x) % 2 != 0) {
+                                    // delete the structure
+                                    // room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y)[0].destroy();
+                                }
+                            }
                         }
                     }
                 }
@@ -711,14 +751,27 @@ function createConstructionSites(room: Room, level: number) {
         // include the level 0 stuff
         // Check the 5 highest spots next to the spawn
         if (spawns.length > 0) {
-            for (let x = -2; x < 3; x++) {
-                for (let y = -2; y < 3; y++) {
+            for (let x = -3; x < 4; x++) {
+                for (let y = -3; y < 4; y++) {
                     // if the spot is not a wall
                     if (room.lookAt(spawns[0].pos.x + x, spawns[0].pos.y + y)[0].terrain !== 'wall') {
                         // look at same spot and see if container there
                         if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y).length === 0) {
+
                             // create the construction site
-                            room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                            if ((spawns[0].pos.x + x) % 2 == 0) {
+                                room.createConstructionSite(spawns[0].pos.x + x, spawns[0].pos.y + y, STRUCTURE_EXTENSION);
+                            }
+
+                        } else {
+                            // check if this is an x is modulo 2 = 0
+                            if (room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y)[0].structureType === STRUCTURE_EXTENSION) {
+                                // check if the x is modulo 2 = 0
+                                if ((spawns[0].pos.x + x) % 2 != 0) {
+                                    // delete the structure
+                                    room.lookForAt(LOOK_STRUCTURES, spawns[0].pos.x + x, spawns[0].pos.y + y)[0].destroy();
+                                }
+                            }
                         }
                     }
                 }
